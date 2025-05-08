@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elektr Tariflari Taqqoslovi</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #e0f7fa, #f1f8e9);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .calculator {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            max-width: 600px;
+            width: 100%;
+            font-size: 1.2rem;
+            position: relative;
+        }
+
+        h1 {
+            text-align: center;
+            color: #00695c;
+            font-size: 2rem;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 0.7rem;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.9rem;
+            background-color: #00796b;
+            color: white;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        button:hover {
+            background-color: #004d40;
+        }
+
+        .result {
+            margin-top: 1.5rem;
+            position: relative;
+        }
+
+        .tariff {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            border-radius: 6px;
+            background-color: #f9fbe7;
+            border-left: 5px solid #cddc39;
+        }
+
+        .tariff h3 {
+            margin-top: 0;
+        }
+
+        .copy-btn {
+            display: none;
+            position: absolute;
+            top: -35px;
+            right: 0;
+            background: #fdd835;
+            border: none;
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .show-copy {
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="calculator">
+        <h1>Elektr tariflarini taqqoslash</h1>
+        <input type="number" id="kwhInput" placeholder="Foydalanilgan kWh miqdorini kiriting...">
+        <button onclick="calculateTariffs()">Hisoblash</button>
+
+        <div class="result" id="result">
+            <button id="copyBtn" class="copy-btn" onclick="copyAll()">📋</button>
+        </div>
+    </div>
+
+    <script>
+        const oldBrackets = [
+            [1, 200],
+            [201, 1000],
+            [1001, 5000],
+            [5001, 10000],
+            [10001, null]
+        ];
+        const oldRates = [450, 900, 1350, 1575, 1800];
+
+        const newBrackets = [
+            [1, 200],
+            [201, 500],
+            [501, 1000],
+            [1001, 5000],
+            [5001, 10000],
+            [10001, null]
+        ];
+        const newRates = [600, 800, 1000, 1500, 1750, 2000];
+
+        function calculateTariff(kwh, brackets, rates) {
+            let remaining = kwh;
+            let cost = 0;
+            let breakdown = [];
+
+            for (let i = 0; i < brackets.length; i++) {
+                const [start, end] = brackets[i];
+                const rate = rates[i];
+                const upper = end === null ? kwh : end;
+
+                const usage = Math.max(0, Math.min(remaining, upper - start + 1));
+
+                if (usage > 0) {
+                    cost += usage * rate;
+                    const actualEnd = end === null ? kwh : end;
+                    breakdown.push(
+                        `${i + 1}. (${start}-${actualEnd} kWt) ${usage} * ${rate} so'm = ${(usage * rate).toLocaleString()} so'm`
+                        );
+                    remaining -= usage;
+                }
+
+                if (remaining <= 0) break;
+            }
+
+            return {
+                cost,
+                breakdown
+            };
+        }
+
+        function calculateTariffs() {
+            const kwh = parseInt(document.getElementById("kwhInput").value);
+            if (isNaN(kwh) || kwh <= 0) {
+                alert("Iltimos, kWh miqdorini to'g'ri kiriting.");
+                return;
+            }
+
+            const oldTariff = calculateTariff(kwh, oldBrackets, oldRates);
+            const newTariff = calculateTariff(kwh, newBrackets, newRates);
+
+            const resultDiv = document.getElementById("result");
+            const copyBtn = document.getElementById("copyBtn");
+            copyBtn.classList.add("show-copy");
+
+            const contentHTML = `
+        <div class="tariff">
+          <h3>📘 Eski tariflar bo'yicha</h3>
+          ${oldTariff.breakdown.map(line => `<p>${line}</p>`).join('')}
+          <strong>Jami: ${oldTariff.cost.toLocaleString()} so'm</strong>
+        </div>
+        <div class="tariff">
+          <h3>📗 Yangi tariflar bo'yicha</h3>
+          ${newTariff.breakdown.map(line => `<p>${line}</p>`).join('')}
+          <strong>Jami: ${newTariff.cost.toLocaleString()} so'm</strong>
+        </div>
+        <div style="text-align:center; font-weight:bold; font-size:1.2rem;">
+          🔄 Farq: ${(newTariff.cost - oldTariff.cost).toLocaleString()} so'm
+        </div>
+      `;
+
+            resultDiv.innerHTML = `<button id='copyBtn' class='copy-btn show-copy' onclick='copyAll()'>📋</button>` +
+                contentHTML;
+        }
+
+        function copyAll() {
+            const resultText = document.getElementById("result").innerText;
+            navigator.clipboard.writeText(resultText).then(() => {
+                alert("Natija nusxalandi!");
+            });
+        }
+    </script>
+</body>
+
+</html>
